@@ -1,19 +1,16 @@
-// src/store/useDeckStore.ts
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-/** Minimal shape for a card we care about right now */
+/** ───── minimal card shape we care about ───── */
 export interface Card {
-  id: string;          // Scryfall’s unique card id
+  id: string;          // Scryfall ID
   name: string;
-  imageUrl: string;    // URL we already have from the search step
+  imageUrl: string;
 }
 
+/** ───── zustand state & actions ───── */
 interface DeckState {
-  /** deck keyed by card.id → { card info, quantity } */
   deck: Record<string, { card: Card; qty: number }>;
-
-  /* --- actions --- */
   addCard: (card: Card) => void;
   increment: (cardId: string) => void;
   decrement: (cardId: string) => void;
@@ -21,62 +18,63 @@ interface DeckState {
   clearDeck: () => void;
 }
 
+/** derived stats helper */
+export function getDeckStats(
+  deck: Record<string, { card: Card; qty: number }>
+) {
+  const numCards = Object.values(deck).reduce((s, e) => s + e.qty, 0);
+  const overCopies = Object.values(deck).filter(
+    (e) => e.qty > 4 && !e.card.name.toLowerCase().includes("basic")
+  );
+  return {
+    numCards,
+    legal60: numCards === 60,
+    noOverCopies: overCopies.length === 0,
+  };
+}
+
 export const useDeckStore = create<DeckState>()(
   persist(
     (set) => ({
       deck: {},
 
-      /* add 1 copy (or bump existing) */
       addCard: (card) =>
         set((state) => {
-          const existing = state.deck[card.id];
-          const qty = existing ? existing.qty + 1 : 1;
-          return {
-            deck: { ...state.deck, [card.id]: { card, qty } },
-          };
+          const entry = state.deck[card.id];
+          const qty = entry ? entry.qty + 1 : 1;
+          return { deck: { ...state.deck, [card.id]: { card, qty } } };
         }),
 
-      /* +1 copy */
-      increment: (cardId) =>
+      increment: (id) =>
         set((state) => {
-          const entry = state.deck[cardId];
+          const entry = state.deck[id];
           if (!entry) return state;
           return {
-            deck: {
-              ...state.deck,
-              [cardId]: { ...entry, qty: entry.qty + 1 },
-            },
+            deck: { ...state.deck, [id]: { ...entry, qty: entry.qty + 1 } },
           };
         }),
 
-      /* –1 copy (or drop if qty hits 0) */
-      decrement: (cardId) =>
+      decrement: (id) =>
         set((state) => {
-          const entry = state.deck[cardId];
+          const entry = state.deck[id];
           if (!entry) return state;
           if (entry.qty === 1) {
-            const { [cardId]: _, ...rest } = state.deck;
+            const { [id]: _, ...rest } = state.deck;
             return { deck: rest };
           }
           return {
-            deck: {
-              ...state.deck,
-              [cardId]: { ...entry, qty: entry.qty - 1 },
-            },
+            deck: { ...state.deck, [id]: { ...entry, qty: entry.qty - 1 } },
           };
         }),
 
-      /* nuke the entry entirely */
-      removeCard: (cardId) =>
+      removeCard: (id) =>
         set((state) => {
-          const { [cardId]: _, ...rest } = state.deck;
+          const { [id]: _, ...rest } = state.deck;
           return { deck: rest };
         }),
 
       clearDeck: () => set({ deck: {} }),
     }),
-    {
-      name: "card-chasm-deck", // <— key used in localStorage
-    }
+    { name: "card-chasm-deck" }
   )
 );

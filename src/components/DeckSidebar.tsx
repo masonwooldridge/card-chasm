@@ -1,35 +1,74 @@
-// src/components/DeckSidebar.tsx
-import { useDeckStore } from "../store/useDeckStore";
+import { useDeckStore, getDeckStats } from "../store/useDeckStore";
+import { deckToText } from "../utils/exportDeck";
 
 export default function DeckSidebar() {
   const deck = useDeckStore((s) => s.deck);
   const { increment, decrement, removeCard, clearDeck } = useDeckStore();
 
-  return (
-    <aside className="w-72 p-4 border-l flex flex-col gap-2">
-      <h2 className="font-bold text-lg">Current Deck</h2>
+  const stats = getDeckStats(deck);
+  const exportText = deckToText(deck);
+  const isEmpty = Object.keys(deck).length === 0;
 
-      {Object.values(deck).length === 0 && (
-        <p className="text-sm text-gray-500">No cards yet—click a card to add.</p>
+  return (
+    <aside className="w-72 p-4 border-l flex flex-col gap-4">
+      {/* header */}
+      <header className="flex items-center justify-between">
+        <h2 className="font-bold text-lg">Current Deck</h2>
+        {stats.legal60 && stats.noOverCopies ? (
+          <span className="text-green-600 text-xl">✓</span>
+        ) : (
+          <span className="text-red-600 text-xl">✗</span>
+        )}
+      </header>
+
+      <p className="text-sm">
+        {stats.numCards}/60 cards
+        {!stats.noOverCopies && " (too many copies)"}
+      </p>
+
+      {/* empty state */}
+      {isEmpty && (
+        <p className="text-sm text-gray-500">
+          No cards yet — click a card to add.
+        </p>
       )}
 
-      {Object.values(deck).map(({ card, qty }) => (
-        <div key={card.id} className="flex items-center gap-2">
-          <span className="w-8 text-right">{qty}×</span>
-          <span className="flex-1 truncate">{card.name}</span>
-          <button onClick={() => increment(card.id)}>+</button>
-          <button onClick={() => decrement(card.id)}>-</button>
-          <button onClick={() => removeCard(card.id)}>🗑️</button>
-        </div>
-      ))}
+      {/* card list */}
+      <div className="flex-1 overflow-y-auto">
+        {Object.values(deck).map(({ card, qty }) => (
+          <div
+            key={card.id}
+            className="flex items-center gap-2 py-1 border-b last:border-b-0"
+          >
+            <span className="w-8 text-right">{qty}×</span>
+            <span className="flex-1 truncate">{card.name}</span>
+            <button onClick={() => increment(card.id)}>+</button>
+            <button onClick={() => decrement(card.id)}>-</button>
+            <button onClick={() => removeCard(card.id)}>🗑️</button>
+          </div>
+        ))}
+      </div>
 
-      {Object.values(deck).length > 0 && (
-        <button
-          className="mt-4 bg-red-600 text-white px-3 py-1 rounded"
-          onClick={clearDeck}
-        >
-          Clear deck
-        </button>
+      {/* footer buttons */}
+      {!isEmpty && (
+        <div className="flex gap-2">
+          <button
+            className="flex-1 bg-green-600 text-white px-3 py-1 rounded"
+            onClick={() => {
+              navigator.clipboard.writeText(exportText);
+              alert("Deck copied to clipboard!");
+            }}
+          >
+            Export
+          </button>
+
+          <button
+            className="flex-1 bg-red-600 text-white px-3 py-1 rounded"
+            onClick={clearDeck}
+          >
+            Clear
+          </button>
+        </div>
       )}
     </aside>
   );
